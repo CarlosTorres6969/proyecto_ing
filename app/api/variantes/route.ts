@@ -1,0 +1,129 @@
+import { NextRequest } from 'next/server';
+import { getConnection, sql } from '@/lib/db';
+import { successResponse, errorResponse, createdResponse } from '@/lib/api-response';
+
+// GET /api/variantes?id=1 | ?id_producto=1 | ?sku=ABC
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    const id_producto = searchParams.get('id_producto');
+    const sku = searchParams.get('sku');
+
+    const pool = await getConnection();
+
+    if (id) {
+      const result = await pool
+        .request()
+        .input('id', sql.BigInt, id)
+        .query('SELECT v.*, p.nombre as nombre_producto FROM variantes_producto v JOIN productos p ON v.id_producto = p.id WHERE v.id = @id');
+      if (result.recordset.length === 0) return errorResponse('Variante no encontrada', 404);
+      return successResponse(result.recordset[0]);
+    }
+
+    if (sku) {
+      const result = await pool
+        .request()
+        .input('sku', sql.NVarChar, sku)
+        .query('SELECT v.*, p.nombre as nombre_producto FROM variantes_producto v JOIN productos p ON v.id_producto = p.id WHERE v.sku = @sku');
+      if (result.recordset.length === 0) return errorResponse('Variante no encontrada', 404);
+      return successResponse(result.recordset[0]);
+    }
+
+    if (id_producto) {
+      const result = await pool
+        .request()
+        .input('id_producto', sql.BigInt, id_producto)
+        .query('SELECT v.*, p.nombre as nombre_producto FROM variantes_producto v JOIN productos p ON v.id_producto = p.id WHERE v.id_producto = @id_producto ORDER BY v.nombre_variante');
+      return successResponse(result.recordset);
+    }
+
+    const result = await pool.request().query('SELECT v.*, p.nombre as nombre_producto FROM variantes_producto v JOIN productos p ON v.id_producto = p.id ORDER BY p.nombre, v.nombre_variante');
+    return successResponse(result.recordset);
+  } catch (error) {
+    console.error('Error fetching variantes:', error);
+    return errorResponse('Error al obtener las variantes');
+  }
+}
+
+// POST /api/variantes  — body: { id_producto, sku, nombre_variante?, precio, precio_oferta?, activo? }
+export async function POST(request: NextRequest) {
+  try {
+    const { id_producto, sku, nombre_variante, precio, precio_oferta, activo } = await request.json();
+
+    if (!id_producto || !sku || precio === undefined) {
+      return errorResponse('id_producto, sku y precio son requeridos', 400);
+    }
+    if (precio_oferta !== undefined && precio_oferta !== null && precio_oferta > precio) {
+      return errorResponse('precio_oferta no puede ser mayor al precio', 400);
+    }
+
+    const pool = await getConnection();
+    const result = await pool
+      .request()
+      .input('id_producto', sql.BigInt, id_producto)
+      .input('sku', sql.NVarChar, sku)
+      .input('nombre_variante', sql.NVarChar, nombre_variante ?? null)
+      .input('precio', sql.Decimal(10, 2), precio)
+      .input('precio_oferta', sql.Decimal(10, 2), precio_oferta ?? null)
+      .input('activo', sql.Bit, activo !== undefined ? (activo ? 1 : 0) : 1)
+      .query('INSERT INTO variantes_producto (id_producto, sku, nombre_variante, precio, precio_oferta, activo) OUTPUT INSERTED.* VALUES (@id_producto, @sku, @nombre_variante, @precio, @precio_oferta, @activo)');
+
+    return createdResponse(result.recordset[0]);
+  } catch (error) {
+    console.error('Error creating variante:', error);
+    return errorResponse('Error al crear la variante');
+  }
+}
+
+// PUT /api/variantes  — body: { id, sku?, nombre_variante?, precio?, precio_oferta?, activo? }
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { id } = body;
+    if (!id) return errorResponse('id es requerido', 400);
+
+    if (body.precio_oferta !== undefined && body.precio_oferta !== null && body.precio !== undefined && body.precio_oferta > body.precio) {
+      return errorResponse('precio_oferta no puede ser mayor al precio', 400);
+    }
+
+    const pool = await getConnection();
+    const req = pool.request().input('id', sql.BigInt, id);
+    const sets: string[] = [];
+
+    if (body.sku !== undefined)           { req.input('sku', sql.NVarChar, body.sku);                                    sets.push('sku = @sku'); }
+    if (body.nombre_variante !== undefined){ req.input('nombre_variante', sql.NVarChar, body.nombre_variante);            sets.push('nombre_variante = @nombre_variante'); }
+    if (body.precio !== undefined)         { req.input('precio', sql.Decimal(10, 2), body.precio);                        sets.push('precio = @precio'); }
+    if ('precio_oferta' in body)           { req.input('precio_oferta', sql.Decimal(10, 2), body.precio_oferta ?? null);  sets.push('precio_oferta = @precio_oferta'); }
+    if (body.activo !== undefined)         { req.input('activo', sql.Bit, body.activo ? 1 : 0);                           sets.push('activo = @activo'); }
+
+    if (sets.length === 0) return errorResponse('Nada que actualizar', 400);
+
+    const result = await req.query(`UPDATE variantes_producto SET ${sets.join(', ')} OUTPUT INSERTED.* WHERE id = @id`);
+    if (result.recordset.length === 0) return errorResponse('Variante no encontrada', 404);
+    return successResponse(result.recordset[0]);
+  } catch (error) {
+    console.error('Error updating variante:', error);
+    return errorResponse('Error al actualizar la variante');
+  }
+}
+
+// DELETE /api/variantes?id=1
+export async function DELETE(request: NextRequest) {
+  try {
+    const id = new URL(request.url).searchParams.get('id');
+    if (!id) return errorResponse('id es requerido', 400);
+
+    const pool = await getConnection();
+    const result = await pool
+      .request()
+      .input('id', sql.BigInt, id)
+      .query('DELETE FROM variantes_producto OUTPUT DELETED.id WHERE id = @id');
+
+    if (result.recordset.length === 0) return errorResponse('Variante no encontrada', 404);
+    return successResponse({ message: 'Variante eliminada' });
+  } catch (error) {
+    console.error('Error deleting variante:', error);
+    return errorResponse('Error al eliminar la variante');
+  }
+}
