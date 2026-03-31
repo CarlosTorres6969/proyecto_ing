@@ -1,14 +1,24 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { AuthProvider } from '@/contexts/auth-context';
+import { CartProvider } from '@/contexts/cart-context';
 
 export const metadata: Metadata = {
-  title: 'Proyecto',
+  title: 'TecnoWorld',
+  description: 'Tu tienda de tecnología online',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body>{children}</body>
+      <body>
+        <AuthProvider>
+          <CartProvider>
+            {children}
+          </CartProvider>
+        </AuthProvider>
+      </body>
     </html>
   );
 }
+

@@ -259,3 +259,41 @@ VALUES ((SELECT TOP 1 id FROM pedidos WHERE estado='entregado' AND id_usuario=(S
 INSERT INTO pagos (id_pedido, monto, metodo_pago, estado)
 VALUES ((SELECT id FROM pedidos WHERE id_usuario=(SELECT id FROM usuarios WHERE correo='admin@techhn.com')),
         19999.00, 'tarjeta', 'pendiente');
+
+-- ======================================================
+-- imagenes_producto
+-- ======================================================
+INSERT INTO imagenes_producto (id_variante, url, cloudinary_public_id, orden)
+VALUES ((SELECT id FROM variantes_producto WHERE sku='SAM-S24-NEG-256'),
+        'https://res.cloudinary.com/dxjydtwyi/image/upload/v1774926986/Samsung-Galaxy-S24-Ultra-flagship-smartphone-transparent-PNG-image_wwkkby.png',
+        'Samsung-Galaxy-S24-Ultra-flagship-smartphone-transparent-PNG-image_wwkkby', 0);
+
+INSERT INTO imagenes_producto (id_variante, url, cloudinary_public_id, orden)
+VALUES ((SELECT id FROM variantes_producto WHERE sku='SAM-S24-BLA-256'),
+        'https://res.cloudinary.com/dxjydtwyi/image/upload/v1774926986/Samsung-Galaxy-S24-Ultra-flagship-smartphone-transparent-PNG-image_wwkkby.png',
+        'Samsung-Galaxy-S24-Ultra-flagship-smartphone-transparent-PNG-image_wwkkby', 0);
+
+INSERT INTO imagenes_producto (id_variante, url, cloudinary_public_id, orden)
+VALUES ((SELECT id FROM variantes_producto WHERE sku='APL-IP15P-NEG-256'),
+        'https://res.cloudinary.com/dxjydtwyi/image/upload/v1774926971/CITYPNG.COM_iPhone_15_Pro_and_Pro_Max_Natural_Titanium_HD_PNG_-_5000x5000_mj8i2w.png',
+        'CITYPNG.COM_iPhone_15_Pro_and_Pro_Max_Natural_Titanium_HD_PNG_-_5000x5000_mj8i2w', 0);
+
+INSERT INTO imagenes_producto (id_variante, url, cloudinary_public_id, orden)
+VALUES ((SELECT id FROM variantes_producto WHERE sku='APL-IP15P-BLA-512'),
+        'https://res.cloudinary.com/dxjydtwyi/image/upload/v1774926971/CITYPNG.COM_iPhone_15_Pro_and_Pro_Max_Natural_Titanium_HD_PNG_-_5000x5000_mj8i2w.png',
+        'CITYPNG.COM_iPhone_15_Pro_and_Pro_Max_Natural_Titanium_HD_PNG_-_5000x5000_mj8i2w', 0);
+
+INSERT INTO imagenes_producto (id_variante, url, cloudinary_public_id, orden)
+VALUES ((SELECT id FROM variantes_producto WHERE sku='XIA-RN13-AZU-128'),
+        'https://res.cloudinary.com/dxjydtwyi/image/upload/v1774926886/72a71b312950178179eeb71425ef8def_jkzipn.png',
+        '72a71b312950178179eeb71425ef8def_jkzipn', 0);
+
+INSERT INTO imagenes_producto (id_variante, url, cloudinary_public_id, orden)
+VALUES ((SELECT id FROM variantes_producto WHERE sku='SNY-WH1000-NEG'),
+        'https://res.cloudinary.com/dxjydtwyi/image/upload/v1774927239/Untitled685023_umkofw.png',
+        'Untitled685023_umkofw', 0);
+
+INSERT INTO imagenes_producto (id_variante, url, cloudinary_public_id, orden)
+VALUES ((SELECT id FROM variantes_producto WHERE sku='SAM-GB4-PLA-512'),
+        'https://res.cloudinary.com/dxjydtwyi/image/upload/v1774926858/c_kkbfrn.png',
+        'c_kkbfrn', 0);
