@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import type { Categoria, Marca, ApiResponse, Producto, VarianteProducto } from '@/types';
+import type { Categoria, Marca, ApiResponse, Producto } from '@/types';
 import { apiFetch } from '@/lib/api-fetch';
 
 export default function NuevoProductoPage() {
@@ -21,23 +21,8 @@ export default function NuevoProductoPage() {
     activo: true,
   });
 
-  const [agregarVariante, setAgregarVariante] = useState(false);
-  const [variante, setVariante] = useState({
-    sku: '',
-    nombre_variante: '',
-    precio: '',
-    precio_oferta: '',
-  });
-
   const [imagenFile, setImagenFile] = useState<File | null>(null);
   const [imagenPreview, setImagenPreview] = useState<string | null>(null);
-
-  const handleImagenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImagenFile(file);
-    setImagenPreview(URL.createObjectURL(file));
-  };
 
   useEffect(() => {
     async function fetchData() {
@@ -57,16 +42,19 @@ export default function NuevoProductoPage() {
     fetchData();
   }, []);
 
+  const handleImagenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImagenFile(file);
+    setImagenPreview(URL.createObjectURL(file));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     if (!formData.nombre || !formData.id_categoria || !formData.id_marca) {
       setError('Nombre, categoria y marca son requeridos');
-      return;
-    }
-    if (agregarVariante && (!variante.sku || !variante.precio)) {
-      setError('SKU y precio son requeridos si agregas una variante');
       return;
     }
 
@@ -90,42 +78,33 @@ export default function NuevoProductoPage() {
       }
       const productoId = prodData.data.id;
 
-      // 2. Crear variante (opcional)
-      if (agregarVariante && variante.sku && variante.precio) {
-        const varRes = await apiFetch('/api/variantes', {
+      // 2. Subir imagen si se seleccionó
+      if (imagenFile) {
+        const form = new FormData();
+        form.append('file', imagenFile);
+        form.append('folder', 'productos');
+        const token = localStorage.getItem('token');
+        const uploadRes = await fetch('/api/upload', {
           method: 'POST',
-          body: JSON.stringify({
-            id_producto: productoId,
-            sku: variante.sku,
-            nombre_variante: variante.nombre_variante || null,
-            precio: Number(variante.precio),
-            precio_oferta: variante.precio_oferta ? Number(variante.precio_oferta) : null,
-          }),
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+          body: form,
         });
-        const varData: ApiResponse<VarianteProducto> = await varRes.json();
-
-        // 3. Subir imagen si se seleccionó y la variante se creó
-        if (varData.success && varData.data && imagenFile) {
-          const form = new FormData();
-          form.append('file', imagenFile);
-          form.append('folder', 'productos');
-          const uploadRes = await fetch('/api/upload', { method: 'POST', body: form });
-          const uploadData: ApiResponse<{ url: string; publicId: string }> = await uploadRes.json();
-          if (uploadData.success && uploadData.data) {
-            await apiFetch('/api/imagenes', {
-              method: 'POST',
-              body: JSON.stringify({
-                id_variante: varData.data.id,
-                url: uploadData.data.url,
-                cloudinary_public_id: uploadData.data.publicId,
-                orden: 0,
-              }),
-            });
-          }
+        const uploadData: ApiResponse<{ url: string; publicId: string }> = await uploadRes.json();
+        if (uploadData.success && uploadData.data) {
+          await apiFetch('/api/productos', {
+            method: 'PUT',
+            body: JSON.stringify({
+              id: productoId,
+              imagen_url: uploadData.data.url,
+              cloudinary_public_id: uploadData.data.publicId,
+            }),
+          });
         }
       }
-      router.push(`/admin/productos/${productoId}`);
-    } catch {
+
+      router.push('/admin/productos');
+    } catch (err) {
+      console.error(err);
       setError('Error al crear el producto');
     } finally {
       setIsLoading(false);
@@ -162,7 +141,6 @@ export default function NuevoProductoPage() {
                 className="mt-1.5 block w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm focus:border-gray-400 focus:outline-none"
                 placeholder="Ej: Samsung Galaxy S25" />
             </div>
-
             <div>
               <label htmlFor="descripcion" className="block text-sm font-medium">Descripcion</label>
               <textarea id="descripcion" rows={3} value={formData.descripcion}
@@ -170,7 +148,6 @@ export default function NuevoProductoPage() {
                 className="mt-1.5 block w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm focus:border-gray-400 focus:outline-none"
                 placeholder="Descripcion del producto..." />
             </div>
-
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label htmlFor="id_categoria" className="block text-sm font-medium">Categoria *</label>
@@ -191,7 +168,6 @@ export default function NuevoProductoPage() {
                 </select>
               </div>
             </div>
-
             <div className="flex items-center gap-3 pt-1">
               <input id="activo" type="checkbox" checked={formData.activo}
                 onChange={(e) => setFormData({ ...formData, activo: e.target.checked })}
@@ -201,99 +177,10 @@ export default function NuevoProductoPage() {
           </div>
         </div>
 
-        {/* Variante opcional */}
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-semibold">Variante</h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">Opcional — puedes agregarla después</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setAgregarVariante(!agregarVariante)}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium border-2 transition-all duration-150 active:scale-95 ${
-                agregarVariante
-                  ? 'border-gray-900 bg-gray-900 text-white'
-                  : 'border-gray-900 bg-white text-gray-900 hover:bg-gray-50'
-              }`}
-            >
-              {agregarVariante ? 'Quitar variante' : 'Agregar variante'}
-            </button>
-          </div>
-
-          {agregarVariante && (
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="block text-sm font-medium">SKU *</label>
-                <input type="text" value={variante.sku}
-                  onChange={(e) => setVariante({ ...variante, sku: e.target.value })}
-                  className="mt-1.5 block w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm focus:border-gray-400 focus:outline-none"
-                  placeholder="Ej: SAM-S25-NEG-256" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium">Nombre variante</label>
-                <input type="text" value={variante.nombre_variante}
-                  onChange={(e) => setVariante({ ...variante, nombre_variante: e.target.value })}
-                  className="mt-1.5 block w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm focus:border-gray-400 focus:outline-none"
-                  placeholder="Ej: Negro 256GB" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium">Precio (L) *</label>
-                <input type="number" step="0.01" value={variante.precio}
-                  onChange={(e) => setVariante({ ...variante, precio: e.target.value })}
-                  className="mt-1.5 block w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm focus:border-gray-400 focus:outline-none"
-                  placeholder="0.00" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium">Precio oferta (L)</label>
-                <input type="number" step="0.01" value={variante.precio_oferta}
-                  onChange={(e) => setVariante({ ...variante, precio_oferta: e.target.value })}
-                  className="mt-1.5 block w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm focus:border-gray-400 focus:outline-none"
-                  placeholder="Opcional" />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Imagen — solo si hay variante */}
-        {agregarVariante && (
-          <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-            <h2 className="text-base font-semibold">Imagen del producto</h2>
-            <p className="mt-0.5 text-sm text-muted-foreground">Se sube a Cloudinary automáticamente</p>
-
-            <div className="mt-5 flex items-center gap-5">
-              {imagenPreview ? (
-                <img src={imagenPreview} alt="Preview"
-                  className="h-28 w-28 rounded-xl object-contain border border-border bg-white p-2 shadow-sm" />
-              ) : (
-                <div className="flex h-28 w-28 items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="h-8 w-8 text-gray-300">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                  </svg>
-                </div>
-              )}
-              <div className="space-y-2">
-                <label className="cursor-pointer rounded-lg border-2 border-gray-900 bg-white px-4 py-2 text-sm font-medium transition-all hover:bg-gray-50 active:scale-95 inline-block">
-                  {imagenFile ? 'Cambiar imagen' : 'Seleccionar imagen'}
-                  <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
-                    onChange={handleImagenChange} />
-                </label>
-                {imagenFile && (
-                  <p className="text-xs text-muted-foreground">{imagenFile.name}</p>
-                )}
-                <p className="text-xs text-muted-foreground">JPEG, PNG o WebP — máx. 5MB</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Imagen — siempre visible */}
+        {/* Imagen */}
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
           <h2 className="text-base font-semibold">Imagen del producto</h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            Se sube a Cloudinary automáticamente al crear el producto
-          </p>
-
+          <p className="mt-0.5 text-sm text-muted-foreground">Se sube a Cloudinary automáticamente</p>
           <div className="mt-5 flex items-center gap-5">
             {imagenPreview ? (
               <img src={imagenPreview} alt="Preview"
@@ -317,7 +204,8 @@ export default function NuevoProductoPage() {
           </div>
         </div>
 
-        <div className="flex gap-3 pt-2">          <Link href="/admin/productos"
+        <div className="flex gap-3 pt-2">
+          <Link href="/admin/productos"
             className="btn-secondary flex-1 py-3 text-center transition-all duration-150 active:scale-95">
             Cancelar
           </Link>

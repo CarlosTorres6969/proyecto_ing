@@ -24,10 +24,15 @@ export async function GET(request: NextRequest) {
     }
     if (id_producto) {
       const result = await pool.request().input('id_producto', sql.BigInt, id_producto)
-        .query('SELECT v.*, p.nombre as nombre_producto FROM variantes_producto v JOIN productos p ON v.id_producto = p.id WHERE v.id_producto = @id_producto ORDER BY v.nombre_variante');
+        .query(`SELECT v.*, p.nombre as nombre_producto,
+          ISNULL((SELECT SUM(ns.cantidad) FROM niveles_stock ns WHERE ns.id_variante = v.id), 0) as stock_total
+          FROM variantes_producto v JOIN productos p ON v.id_producto = p.id
+          WHERE v.id_producto = @id_producto ORDER BY v.nombre_variante`);
       return successResponse(result.recordset);
     }
-    const result = await pool.request().query('SELECT v.*, p.nombre as nombre_producto FROM variantes_producto v JOIN productos p ON v.id_producto = p.id ORDER BY p.nombre, v.nombre_variante');
+    const result = await pool.request().query(`SELECT v.*, p.nombre as nombre_producto,
+      ISNULL((SELECT SUM(ns.cantidad) FROM niveles_stock ns WHERE ns.id_variante = v.id), 0) as stock_total
+      FROM variantes_producto v JOIN productos p ON v.id_producto = p.id ORDER BY p.nombre, v.nombre_variante`);
     return successResponse(result.recordset);
   } catch (error) { console.error(error); return errorResponse('Error al obtener las variantes'); }
 }
@@ -36,6 +41,7 @@ export async function POST(request: NextRequest) {
   try {
     requireAdmin(request);
     const { id_producto, sku, nombre_variante, precio, precio_oferta, activo } = await request.json();
+    console.log('[POST /api/variantes]', { id_producto, sku, precio });
     if (!id_producto || !sku || precio === undefined) return errorResponse('id_producto, sku y precio son requeridos', 400);
     if (precio_oferta !== undefined && precio_oferta !== null && precio_oferta > precio) return errorResponse('precio_oferta no puede ser mayor al precio', 400);
     const pool = await getConnection();
@@ -48,7 +54,7 @@ export async function POST(request: NextRequest) {
       .input('activo', sql.Bit, activo !== undefined ? (activo ? 1 : 0) : 1)
       .query('INSERT INTO variantes_producto (id_producto, sku, nombre_variante, precio, precio_oferta, activo) OUTPUT INSERTED.* VALUES (@id_producto, @sku, @nombre_variante, @precio, @precio_oferta, @activo)');
     return createdResponse(result.recordset[0]);
-  } catch (e) { const a = authError(e); if (a) return errorResponse(a, 403); return errorResponse('Error al crear la variante'); }
+  } catch (e) { const a = authError(e); if (a) return errorResponse(a, 403); console.error('[POST /api/variantes error]', e); return errorResponse('Error al crear la variante'); }
 }
 
 export async function PUT(request: NextRequest) {
@@ -66,7 +72,8 @@ export async function PUT(request: NextRequest) {
     if (body.precio !== undefined)          { req.input('precio', sql.Decimal(10, 2), body.precio);                       sets.push('precio = @precio'); }
     if ('precio_oferta' in body)            { req.input('precio_oferta', sql.Decimal(10, 2), body.precio_oferta ?? null); sets.push('precio_oferta = @precio_oferta'); }
     if (body.activo !== undefined)          { req.input('activo', sql.Bit, body.activo ? 1 : 0);                          sets.push('activo = @activo'); }
-    if (sets.length === 0) return errorResponse('Nada que actualizar', 400);
+    if ('imagen_url' in body)               { req.input('imagen_url', sql.NVarChar, body.imagen_url ?? null);             sets.push('imagen_url = @imagen_url'); }
+    if ('cloudinary_public_id' in body)     { req.input('cloudinary_public_id', sql.NVarChar, body.cloudinary_public_id ?? null); sets.push('cloudinary_public_id = @cloudinary_public_id'); }    if (sets.length === 0) return errorResponse('Nada que actualizar', 400);
     const result = await req.query(`UPDATE variantes_producto SET ${sets.join(', ')} OUTPUT INSERTED.* WHERE id = @id`);
     if (result.recordset.length === 0) return errorResponse('Variante no encontrada', 404);
     return successResponse(result.recordset[0]);

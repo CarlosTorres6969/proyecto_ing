@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     }
     const carritoId = carrito.recordset[0].id;
     const items = await pool.request().input('id_carrito', sql.BigInt, carritoId).query(`
-      SELECT ic.*, v.sku, v.nombre_variante, v.precio, v.precio_oferta, p.nombre as nombre_producto
+      SELECT ic.*, v.sku, v.nombre_variante, v.precio, v.precio_oferta, p.nombre as nombre_producto, p.imagen_url
       FROM items_carrito ic
       JOIN variantes_producto v ON ic.id_variante = v.id
       JOIN productos p ON v.id_producto = p.id

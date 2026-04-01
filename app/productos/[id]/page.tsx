@@ -31,23 +31,18 @@ export default function ProductoDetailPage() {
           fetch(`/api/productos?id=${params.id}`),
           fetch(`/api/variantes?id_producto=${params.id}`),
         ]);
-        
         const prodData: ApiResponse<Producto> = await prodRes.json();
         const varData: ApiResponse<VarianteProducto[]> = await varRes.json();
-        
         if (prodData.success && prodData.data) {
           setProducto(prodData.data);
+          if (prodData.data.imagen_url) setImagenUrl(prodData.data.imagen_url);
         }
         if (varData.success && varData.data) {
           setVariantes(varData.data);
           if (varData.data.length > 0) {
-            setSelectedVariante(varData.data[0]);
-            // Cargar imagen de la primera variante
-            const imgRes = await fetch(`/api/imagenes?id_variante=${varData.data[0].id}`);
-            const imgData: ApiResponse<{ url: string }[]> = await imgRes.json();
-            if (imgData.success && imgData.data && imgData.data.length > 0) {
-              setImagenUrl(imgData.data[0].url);
-            }
+            const first = varData.data[0];
+            setSelectedVariante(first);
+            if (first.imagen_url) setImagenUrl(first.imagen_url);
           }
         }
       } catch (error) {
@@ -59,15 +54,11 @@ export default function ProductoDetailPage() {
     fetchProducto();
   }, [params.id]);
 
-  const handleSelectVariante = async (variante: VarianteProducto) => {
+  const handleSelectVariante = (variante: VarianteProducto) => {
     setSelectedVariante(variante);
-    const imgRes = await fetch(`/api/imagenes?id_variante=${variante.id}`);
-    const imgData: ApiResponse<{ url: string }[]> = await imgRes.json();
-    if (imgData.success && imgData.data && imgData.data.length > 0) {
-      setImagenUrl(imgData.data[0].url);
-    } else {
-      setImagenUrl(null);
-    }
+    if (variante.imagen_url) setImagenUrl(variante.imagen_url);
+    else if (producto?.imagen_url) setImagenUrl(producto.imagen_url);
+    setCantidad(1);
   };
 
   const handleAddToCart = async () => {    if (!selectedVariante) return;
@@ -152,20 +143,46 @@ export default function ProductoDetailPage() {
 
           <div className="mt-8 grid gap-8 lg:grid-cols-2">
             {/* Image */}
-            <div className="aspect-square overflow-hidden rounded-lg bg-secondary">
-              <div className="flex h-full items-center justify-center bg-muted">
-                {imagenUrl ? (
-                  <img
-                    src={imagenUrl}
-                    alt={producto.nombre}
-                    className="h-full w-full object-contain p-6"
-                  />
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={0.5} stroke="currentColor" className="h-32 w-32 text-muted-foreground/30">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                  </svg>
-                )}
+            <div>
+              <div className="aspect-square overflow-hidden rounded-lg bg-secondary">
+                <div className="flex h-full items-center justify-center bg-muted">
+                  {imagenUrl ? (
+                    <img
+                      src={imagenUrl}
+                      alt={producto.nombre}
+                      className="h-full w-full object-contain p-6"
+                    />
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={0.5} stroke="currentColor" className="h-32 w-32 text-muted-foreground/30">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                    </svg>
+                  )}
+                </div>
               </div>
+
+              {/* Thumbnails */}
+              {variantes.some(v => v.imagen_url) && (
+                <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                  {variantes.filter(v => v.imagen_url).map((variante) => (
+                    <button
+                      key={variante.id}
+                      onClick={() => handleSelectVariante(variante)}
+                      title={variante.nombre_variante || variante.sku}
+                      className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 transition-all ${
+                        selectedVariante?.id === variante.id
+                          ? 'border-primary'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      <img
+                        src={variante.imagen_url!}
+                        alt={variante.nombre_variante || variante.sku}
+                        className="h-full w-full object-contain p-1 bg-white"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Details */}
@@ -223,25 +240,26 @@ export default function ProductoDetailPage() {
               {/* Cantidad */}
               <div className="mt-6">
                 <h3 className="text-sm font-medium">Cantidad</h3>
-                <div className="mt-2 flex items-center gap-3">
-                  <button
-                    onClick={() => setCantidad(Math.max(1, cantidad - 1))}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border transition-all duration-150 hover:bg-secondary active:scale-90 cursor-pointer"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" />
-                    </svg>
-                  </button>
-                  <span className="w-12 text-center text-lg font-medium">{cantidad}</span>
-                  <button
-                    onClick={() => setCantidad(cantidad + 1)}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border transition-all duration-150 hover:bg-secondary active:scale-90 cursor-pointer"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                    </svg>
-                  </button>
-                </div>
+                {selectedVariante && (selectedVariante.stock_total ?? 0) > 0 ? (
+                  <div className="mt-2 flex items-center gap-3">
+                    <button onClick={() => setCantidad(Math.max(1, cantidad - 1))}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-border transition-all duration-150 hover:bg-secondary active:scale-90 cursor-pointer">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" />
+                      </svg>
+                    </button>
+                    <span className="w-12 text-center text-lg font-medium">{cantidad}</span>
+                    <button onClick={() => setCantidad(Math.min(selectedVariante.stock_total ?? 1, cantidad + 1))}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-border transition-all duration-150 hover:bg-secondary active:scale-90 cursor-pointer">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                      </svg>
+                    </button>
+                    <span className="text-xs text-muted-foreground">{selectedVariante.stock_total} disponibles</span>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm font-medium text-destructive">Sin stock disponible</p>
+                )}
               </div>
 
               {/* Message */}
@@ -259,10 +277,10 @@ export default function ProductoDetailPage() {
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                 <button
                   onClick={handleAddToCart}
-                  disabled={!selectedVariante || addingToCart}
+                  disabled={!selectedVariante || addingToCart || (selectedVariante?.stock_total ?? 0) === 0}
                   className="btn-primary flex-1 py-3"
                 >
-                  {addingToCart ? 'Agregando...' : 'Agregar al carrito'}
+                  {addingToCart ? 'Agregando...' : (selectedVariante?.stock_total ?? 0) === 0 ? 'Sin stock' : 'Agregar al carrito'}
                 </button>
                 <Link
                   href="/carrito"

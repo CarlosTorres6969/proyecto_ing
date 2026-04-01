@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       const pedido = await pool.request().input('id', sql.BigInt, id).query('SELECT * FROM pedidos WHERE id = @id');
       if (pedido.recordset.length === 0) return errorResponse('Pedido no encontrado', 404);
       const items = await pool.request().input('id_pedido', sql.BigInt, id).query(`
-        SELECT ip.*, v.sku, v.nombre_variante, p.nombre as nombre_producto
+        SELECT ip.*, v.sku, v.nombre_variante, p.nombre as nombre_producto, p.imagen_url
         FROM items_pedido ip
         JOIN variantes_producto v ON ip.id_variante = v.id
         JOIN productos p ON v.id_producto = p.id

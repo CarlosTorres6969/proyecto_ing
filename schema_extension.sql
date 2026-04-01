@@ -133,3 +133,18 @@ CREATE TABLE metodos_envio (
   activo      BIT NOT NULL DEFAULT 1
 );
 GO
+
+-- =========================
+-- IMAGEN POR VARIANTE
+-- =========================
+ALTER TABLE variantes_producto
+  ADD imagen_url NVARCHAR(500) NULL,
+      cloudinary_public_id NVARCHAR(200) NULL;
+GO
+
+-- =========================
+-- VARIANTE BASE
+-- =========================
+ALTER TABLE variantes_producto
+  ADD es_variante_base BIT NOT NULL DEFAULT 0;
+GO

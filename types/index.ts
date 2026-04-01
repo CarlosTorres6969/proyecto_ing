@@ -47,6 +47,7 @@ export interface Producto {
   nombre_marca?: string;
   nombre_categoria?: string;
   imagen_url?: string;
+  cloudinary_public_id?: string;
 }
 
 export interface VarianteProducto {
@@ -57,7 +58,11 @@ export interface VarianteProducto {
   precio: number;
   precio_oferta?: number | null;
   activo: boolean;
+  es_variante_base?: boolean;
   nombre_producto?: string;
+  stock_total?: number;
+  imagen_url?: string | null;
+  cloudinary_public_id?: string | null;
 }
 
 export interface Tienda {
@@ -86,6 +91,7 @@ export interface ItemCarrito {
   precio?: number;
   precio_oferta?: number | null;
   nombre_producto?: string;
+  imagen_url?: string;
 }
 
 export interface Carrito {
@@ -103,6 +109,7 @@ export interface ItemPedido {
   sku?: string;
   nombre_variante?: string;
   nombre_producto?: string;
+  imagen_url?: string;
 }
 
 export interface Pedido {
